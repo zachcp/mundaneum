@@ -1,7 +1,7 @@
 (ns mundaneum.core
-  (:require [mundaneum.query    :refer [describe entity label property query]]
-            [backtick           :refer [template]]
-            [clj-time.format    :as    tf]))
+    (:require [mundaneum.query    :refer [describe entity label property query stringify-query]
+               [backtick           :refer [template]]
+               [clj-time.format    :as    tf]]))
 
 ;; To understand what's happening here, it would be a good idea to
 ;; read through this document:
@@ -30,6 +30,7 @@
 (property :instance-of)
 ;;=> "P31"
 
+
 ;; ... but we use it indirectly through a set of helper functions
 ;; named for Wikidata namespaces, like wdt, p, ps and pq. The link
 ;; above will help you understand which one of these you might want
@@ -37,11 +38,11 @@
 
 ;; All parts of countries, ignoring Canada (sorry, Canada)
 (query
- '[:select ?biggerLabel ?smallerLabel
-   :where [[?bigger (wdt :instance-of) (entity "country")]
-           [?bigger (wdt :contains-administrative-territorial-entity) ?smaller]
-           :filter [?bigger != (entity "Canada")]]
-   :limit 10])
+  '[:select ?biggerLabel ?smallerLabel
+    :where [[?bigger (wdt :instance-of) (entity "country")]
+            [?bigger (wdt :contains-administrative-territorial-entity) ?smaller]
+            :filter [?bigger != (entity "Canada")]]
+    :limit 10])
 ;;=>
 ;; #{{:biggerLabel "Norway", :smallerLabel "Østfold"}
 ;;   {:biggerLabel "Japan", :smallerLabel "Nara Prefecture"}
@@ -55,19 +56,107 @@
 ;; (note the _, which translates to SPARQL's ; which means "use the
 ;; same subject as before")
 (query
- '[:select :distinct ?pLabel
-   :where [[?p (wdt :award-received) / (wdt :instance-of) * (entity "Nobel Prize")
-            _  (wdt :award-received) / (wdt :instance-of) * (entity "Academy Awards")]]])
+  '[:select :distinct ?pLabel
+    :where [[?p (wdt :award-received) / (wdt :subclass-of) * (entity "Nobel Prize")]]])
+
+(query
+  '[:select :distinct ?awardLabel
+    :where [[(entity "Albert Einstein") (wdt :award-received)  ?award]
+            [?award (wdt :instance-of)  (entity "Nobel Prize")]
+            [? (wdt :instance-of)  (entity "Nobel Prize")]]])
+
+
+;;
+;; All Three national Academies
+;;
+
+
+(query
+  '[:select :distinct ?pLabel
+    :where [[?p (wdt :award-received)/  (wdt :instance-of)  (entity "Nobel Prize")]]])
+(query
+  '[:select :distinct ?pLabel
+    :where [[?p (wdt :award-received) / (wdt :subclass-of) * (entity "National Academy of Sciences")
+
+             _  (wdt :award-received) / (wdt :subclass-of) * (entity "Academy Awards")]]])
+
+(describe (entity "National Academy of Sciences"))
+(describe (entity "National Academy of Engineering" :country (entity "United States of America")))
+(describe (entity "National Academy of Medicine"))
+
+
+(query
+  '[:select :distinct ?pLabel
+    :where [[?p (wdt :member-of) (entity "National Academy of Sciences")
+             _  (wdt :member-of) (entity "National Academy of Engineering"
+                                         :country (entity "United States of America"))
+             _  (wdt :member-of) (entity "National Academy of Medicine")]]])
+
+(query
+  '[:select :distinct (count ?p)
+    :where [[?p (wdt :member-of) (entity "National Academy of Sciences")
+             _  (wdt :member-of) (entity "National Academy of Engineering")]]]) :country (entity "United States of America")
+; 162
+
+(query
+  '[:select :distinct (count ?p)
+    :where [[?p (wdt :member-of) (entity "National Academy of Sciences")
+             _ (wdt :member-of) (entity "National Academy of Medicine")]]])
+; 46
+
+(query
+  '[:select :distinct (count ?p)
+    :where [[?p  (wdt :member-of) (entity "National Academy of Engineering"
+                                          :country (entity "United States of America"))
+             _ (wdt :member-of) (entity "National Academy of Medicine")]]])
+; 9
+
+
+(query
+  '[:select :distinct (count ?p)
+    :where [[?p (wdt :member-of) (entity "National Academy of Sciences")
+             _  (wdt :member-of) (entity "National Academy of Engineering"
+                                         :country (entity "United States of America"))
+             _  (wdt :member-of) (entity "National Academy of Medicine")]]])
+;7
+
+(query
+  '[:select :distinct ?pLabel
+    :where [[?p (wdt :member-of) (entity "National Academy of Sciences")
+             _  (wdt :member-of) (entity "National Academy of Engineering"
+                                         :country (entity "United States of America"))
+             _  (wdt :member-of) (entity "National Academy of Medicine")]]])
+
+
+
+(query
+  '[:select :distinct ?pLabel
+    :where [[?p (wdt :instance-of) (entity "National Academy of Engineering")]]])
+
+
+(entity "pharmaceutical drug")
+
+(query
+  '[:select :distinct ?pLabel
+    :where [[?p (wdt :member-of) (entity "National Academy of Engineering")]]])
+
+(query
+  '[:select :distinct ?pLabel
+    :where [[?p (wdt :member-of) / (wdt :subclass-of) * (entity "Nobel Prize")]]])
+
+
+
+
 ;;=> #{{:pLabel "Bob Dylan"} {:pLabel "George Bernard Shaw"}}
 
 ;; notable murders of the ancient world, with date and location
 (query
- '[:select ?killedLabel ?killerLabel ?locationLabel ?when
-   :where [[?killed (wdt :killed-by) ?killer]
-           [?killed (wdt :date-of-death) ?when]
-           [?killed (wdt :place-of-death) ?location]]
-   :order-by (asc ?when)
-   :limit 5])
+  '[:select ?killedLabel ?killerLabel ?locationLabel ?when
+    :where [[?killed (wdt :killed-by) ?killer]
+            [?killed (wdt :date-of-death) ?when]
+            [?killed (wdt :place-of-death) ?location]]
+    :order-by (asc ?when)
+    :limit 5])
 ;;=>
 ;; #{{:when
 ;;    #object[org.joda.time.DateTime 0x61b1428a "-0474-01-01T00:00:00.000Z"],
@@ -85,13 +174,13 @@
 ;; uncomment the second part of the :where clause to specify only
 ;; female inventor/discovers
 (->> (query
-      '[:select ?thingLabel ?whomLabel
-        :where [[?thing (wdt :discoverer-or-inventor) ?whom
-;;                 _ (wdt :sex-or-gender) (entity "female")
-                 ]]
-        :limit 100])
- (group-by :whomLabel)
- (reduce #(assoc %1 (first %2) (mapv :thingLabel (second %2))) {}))
+       '[:select ?thingLabel ?whomLabel
+         :where [[?thing (wdt :discoverer-or-inventor) ?whom]]
+         ;;                 _ (wdt :sex-or-gender) (entity "female")
+
+         :limit 100])
+     (group-by :whomLabel)
+     (reduce #(assoc %1 (first %2) (mapv :thingLabel (second %2))) {}))
 ;;=>
 ;;  "Enrico Fermi" ["Monte Carlo method" "Fermi resonance" "Metropolis–Hastings algorithm" "Fermi–Walker transport"],
 ;;  "Napoleon" ["Napoleon's theorem"],
@@ -101,10 +190,10 @@
 
 ;; eye color popularity, grouping and counting as part of the query
 (query
- '[:select ?eyeColorLabel (count ?person :as ?count)
-   :where [[?person (wdt :eye-color) ?eyeColor] ]
-   :group-by ?eyeColorLabel
-   :order-by (desc ?count)])
+  '[:select ?eyeColorLabel (count ?person :as ?count)
+    :where [[?person (wdt :eye-color) ?eyeColor]]
+    :group-by ?eyeColorLabel
+    :order-by (desc ?count)])
 ;;=>
 ;; [{:eyeColorLabel "blue", :count "342"}
 ;;  {:eyeColorLabel "brown", :count "303"}
@@ -114,21 +203,25 @@
 
 ;; airports within 20km of Paris, use "around" service
 (query
- '[:select ?place ?placeLabel ?location
-   :where [[(entity "Paris") (wdt :coordinate-location) ?parisLoc]
-           [?place (wdt :instance-of) (entity "airport")]
-           :service wikibase:around [[?place (wdt :coordinate-location) ?location]
-                                     [bd:serviceParam wikibase:center ?parisLoc]
-                                     [bd:serviceParam wikibase:radius "20"]]]])
-;; [{:place "Q1894366", :location "Point(2.191667 48.774167)", :placeLabel "Villacoublay Air Base"}
-;;  {:place "Q1894366", :location "Point(2.19972222 48.77305556)", :placeLabel "Villacoublay Air Base"}
+  '[:select ?place ?placeLabel ?location
+    :where [[(entity "Paris") (wdt :coordinate-location) ?parisLoc]
+            [?place (wdt :instance-of) / (wdt :subclass-of) * (entity "airport")]
+            :service wikibase:around [[?place (wdt :coordinate-location) ?location]
+                                      [bd:serviceParam wikibase:center ?parisLoc]
+                                      [bd:serviceParam wikibase:radius "20"]]]])
+;; #{{:place "Q2875445",
+;;    :location "Point(2.60611 48.8967)",
+;;    :placeLabel "Chelles Le Pin Airport"}
+;;   {:place "Q738719",
+;;    :location "Point(2.441388888 48.969444444)",
+;;    :placeLabel "Paris–Le Bourget Airport"}
 ;; ...
 
 ;; U1 stations in Berlin w/ geo coords
 (query (template
-        [:select ?stationLabel ?coord
-         :where [[?station (wdt :connecting-line) (entity "U1" :part-of ~(entity "Berlin U-Bahn"))
-                  _ (wdt :coordinate-location) ?coord]]]))
+         [:select ?stationLabel ?coord
+          :where [[?station (wdt :connecting-line) (entity "U1" :part-of ~(entity "Berlin U-Bahn"))
+                   _ (wdt :coordinate-location) ?coord]]]))
 ;;=>
 ;; #{{:coord "Point(13.382777777 52.499166666)",
 ;;    :stationLabel "Möckernbrücke"}
@@ -140,11 +233,11 @@
 
 ;; born in Scotland or territories thereof
 (query
- '[:select ?itemLabel ?pobLabel
-   :where [:union [[?item (wdt :place-of-birth) (entity "Scotland")]
-                   [[?item (wdt :place-of-birth) ?pob]
-                    [?pob (wdt :located-in-the-administrative-territorial-entity) * (entity "Scotland")]]]]
-   :limit 10])
+  '[:select ?itemLabel ?pobLabel
+    :where [:union [[?item (wdt :place-of-birth) (entity "Scotland")]
+                    [[?item (wdt :place-of-birth) ?pob]
+                     [?pob (wdt :located-in-the-administrative-territorial-entity) * (entity "Scotland")]]]]
+    :limit 10])
 ;; #{{:item "Q110974", :itemLabel "James Black"}
 ;;   {:item "Q45864", :itemLabel "John McAfee"}
 ;;   {:item "Q8755", :itemLabel "Colin Maclaurin"}
@@ -156,19 +249,19 @@
 ;; operator, which is says "continue this expression using the same
 ;; entity"):
 (query
- '[:select ?prevLabel
-   :where [[(entity "Barack Obama") (p :position-held) ?pos]
-           [?pos (ps :position-held) (entity "President of the United States of America")
-            _ (pq :replaces) ?prev]]])
+  '[:select ?prevLabel
+    :where [[(entity "Barack Obama") (p :position-held) ?pos]
+            [?pos (ps :position-held) (entity "President of the United States of America")
+             _ (pq :replaces) ?prev]]])
 ;;=>#{{:prevLabel "George W. Bush"}}
 
 ;; which can be trivially expanded to list all US presidents and their
 ;; predecessors
 (query
- '[:select ?prezLabel ?prevLabel
-   :where [[?prez (p :position-held) ?pos]
-           [?pos (ps :position-held) (entity "President of the United States of America")
-            _ (pq :replaces) ?prev]]])
+  '[:select ?prezLabel ?prevLabel
+    :where [[?prez (p :position-held) ?pos]
+            [?pos (ps :position-held) (entity "President of the United States of America")
+             _ (pq :replaces) ?prev]]])
 ;;=>#{{:prezLabel "John Tyler", :prevLabel "William Henry Harrison"}
 ;;    {:prezLabel "Gerald Ford", :prevLabel "Richard Nixon"}
 ;;    {:prezLabel "John Adams", :prevLabel "George Washington"}
@@ -176,25 +269,25 @@
 
 ;; We can also use triples to find out about analogies in the dataset
 (defn make-analogy
-  "Return known analogies for the form `a1` is to `a2` as `b1` is to ???"
-  [a1 a2 b1]
-  (->> (query
-        (template [:select ?isto ?analogyLabel
-                   :where [[~(symbol (str "wd:" a1)) ?isto ~(symbol (str "wd:" a2))]
-                           [~(symbol (str "wd:" b1)) ?isto ?analogy]
-                           ;; tightens analogies by requiring that a2/b2 be of the same kind,
-                           ;; but loses some interesting loose analogies:
-                           ;; [~(symbol (str "wd:" a2)) (wdt :instance-of) ?kind]
-                           ;; [?analogy (wdt :instance-of) ?kind]
-                           ]]))
-       (map #(let [arc (label (:isto %))]
-               (str (label a1)
-                    " is <" arc "> to "
-                    (label a2)
-                    " as "
-                    (label b1)
-                    " is <" arc "> to " (:analogyLabel %))))
-       distinct))
+      "Return known analogies for the form `a1` is to `a2` as `b1` is to ???"
+      [a1 a2 b1]
+      (->> (query
+             (template [:select ?isto ?analogyLabel
+                        :where [[~(symbol (str "wd:" a1)) ?isto ~(symbol (str "wd:" a2))]
+                                [~(symbol (str "wd:" b1)) ?isto ?analogy]]]))
+           ;; tightens analogies by requiring that a2/b2 be of the same kind,
+           ;; but loses some interesting loose analogies:
+           ;; [~(symbol (str "wd:" a2)) (wdt :instance-of) ?kind]
+           ;; [?analogy (wdt :instance-of) ?kind]
+
+           (map #(let [arc (label (:isto %))]
+                      (str (label a1)
+                           " is <" arc "> to "
+                           (label a2)
+                           " as "
+                           (label b1)
+                           " is <" arc "> to " (:analogyLabel %))))
+           distinct))
 
 (apply make-analogy (map entity ["The Beatles" "rock and roll" "Miles Davis"]))
 ;;=> ("The Beatles is <genre> to rock and roll as Miles Davis is <genre> to jazz")
@@ -215,38 +308,38 @@
 ;;=> ("Daft Punk is <location of formation> to Paris as Jape is <location of formation> to Dublin")
 
 (defn releases-since
-  "Returns any creative works published since `year`/`month` by any `entities` known to Wikidata."
-  [since-year since-month entities]
-  (let [ents (map #(if (re-find #"^Q[\d]+" %) % (entity %)) entities)]
-    (query
-     (template [:select ?workLabel ?creatorLabel ?role ?date
-                :where [[?work ?role ?creator _ (wdt :publication-date) ?date]
-                        :union ~(mapv #(vector '?work '?role (symbol (str "wd:" %))) ents)
-                        :filter ((year ?date) >= ~since-year)
-                        :filter ((month ?date) >= ~since-month)]
-                :order-by (asc ?date)]))))
+      "Returns any creative works published since `year`/`month` by any `entities` known to Wikidata."
+      [since-year since-month entities]
+      (let [ents (map #(if (re-find #"^Q[\d]+" %) % (entity %)) entities)]
+           (query
+             (template [:select ?workLabel ?creatorLabel ?role ?date
+                        :where [[?work ?role ?creator _ (wdt :publication-date) ?date]
+                                :union ~(mapv #(vector '?work '?role (symbol (str "wd:" %))) ents)
+                                :filter ((year ?date) >= ~since-year)
+                                :filter ((month ?date) >= ~since-month)]
+                        :order-by (asc ?date)]))))
 
 (defn humanize-releases
-  "Make the data presentable."
-  [releases]
-  (->> (group-by :workLabel releases)
-       (map (fn [[work roles]]
-              [(:date (first roles))
-               work
-               (str (:creatorLabel (first roles))
-                    " ("
-                    (->> (map :role roles)
-                         (map label)
-                         distinct
-                         (interpose "/")
-                         (apply str))
-                    ")")]))
-       (sort-by first)
-       (map #(conj (rest %) (tf/unparse (tf/formatter "d MMMM, yyyy") (first %))))))
+      "Make the data presentable."
+      [releases]
+      (->> (group-by :workLabel releases)
+           (map (fn [[work roles]]
+                    [(:date (first roles))
+                     work
+                     (str (:creatorLabel (first roles))
+                          " ("
+                          (->> (map :role roles)
+                               (map label)
+                               distinct
+                               (interpose "/")
+                               (apply str))
+                          ")")]))
+           (sort-by first)
+           (map #(conj (rest %) (tf/unparse (tf/formatter "d MMMM, yyyy") (first %))))))
 
 (->> (releases-since 2015 1 ; year and month
-                   ["Kelly Link" "Stromae" "Guillermo del Toro" "Hayao Miyazaki" "Lydia Davis"
-                    "Werner Herzog" "Björk" "George Saunders" "Feist" "Andrew Bird" "Sofia Coppola"])
+                     ["Kelly Link" "Stromae" "Guillermo del Toro" "Hayao Miyazaki" "Lydia Davis"
+                      "Werner Herzog" "Björk" "George Saunders" "Feist" "Andrew Bird" "Sofia Coppola"])
      humanize-releases)
 ;;=>
 ;; (("1 January, 2015" "Crimson Peak" "Guillermo del Toro (director/screenwriter)")
@@ -265,11 +358,102 @@
 ;;  ("23 June, 2017" "The Beguiled" "Sofia Coppola (director/screenwriter)")
 ;;  ("1 January, 2018" "Pacific Rim: Maelstrom" "Guillermo del Toro (screenwriter)"))
 
-;; (query
-;;  '[:select ?awdLabel ?countryLabel  (count ?p :as ?count)
-;;    :where [[?p (wdt :award-received) ?awd
-;;             _  (wdt :place-of-birth) ?birthplace]
-;;            [?awd (wdt :instance-of) (entity "Nobel Prize")]
-;;            [?birthplace (wdt :country) ?country]]
-;;    :group-by ?awdLabel ?countryLabel
-;;    :order-by (desc ?count)])
+
+
+;;
+;; SPARL Queries Translated From
+;; https://bitbucket.org/sulab/wikidatasparqlexamples/src
+;;
+
+
+(property :canonical-SMILES)
+
+;; predecessors
+(query
+  '[:select :distinct ?pLabel
+    :where [[?p (p :CAS-registry-number) ?cas]]
+    :limit 5])
+;{:pLabel "actinium"}
+;{:pLabel "antimony"}
+;{:pLabel "caesium"}
+;{:pLabel "dubnium"}
+;{:pLabel "europium"}
+
+; Multiple Sclerosis from NCi THesaurus
+(query
+  '[:select ?disease ?diseaseLabel ?diseaseDescription ?drug ?drugLabel ?drugDescription ?link
+    :where [[?disease (wdt :NCI-Thesaurus-ID) "C3243"]]])
+
+; Get drug
+(query
+  '[:select ?disease ?diseaseLabel ?diseaseDescription ?drug ?drugLabel ?drugDescription ?link
+    :where [[?disease      (wdt :NCI-Thesaurus-ID)       "C3243"]
+            [?disease      (p :drug-used-for-treatment)  ?disease_drug]
+            [?disease_drug (ps :drug-used-for-treatment) ?drug]]])
+
+
+(query
+;(stringify-query
+  '[:select ?disease ?diseaseLabel ?diseaseDescription ?drug ?drugLabel ?drugDescription ?chemblid ?ndfid
+    :where [[?disease      (wdt :NCI-Thesaurus-ID)       "C3243"]
+            [?disease      (p :drug-used-for-treatment)  ?disease_drug]
+            [?disease_drug (ps :drug-used-for-treatment) ?drug]
+            [?disease_drug (prov)                        ?reference]
+            :optional [[?reference (pr :ChEMBL-ID) ?chemblid]]
+            :optional [[?reference (pr :NDF-RT-ID) ?ndfid]]]])
+
+;:optional [[?reference (p :ChEMBL-ID) ?chemblid]]
+;            :optional [[?reference (p :NDF-RT-ID) ?ndfid]]]])
+
+
+                ;BIND (replace(?url, "\\$1",?chemblid)  AS ?link)])
+
+    ;:optional [[?reference pr:P592 ?chemblid
+    ;            [wd:P592 wdt:P1630 ?url]]]])
+    ;            ;BIND (replace(?url, "\\$1",?chemblid)  AS ?link)])
+    ;
+
+
+
+(property :was-derived-from)
+(entity :wasDerivedFrom)
+stringify-query
+(query
+  '[:select ?drug ?drugLabel ?drugDescription ?link
+    :where [[(entity "multiple sclerosis") (p :drug-used-for-treatment) ?drug]]
+    :limit 10])
+
+
+
+(query
+  '[:select ?disease ?disease_drug
+    :where [[?disease (wdt :NCI-Thesaurus-ID) (entity "multiple sclerosis")]
+            [?disease (p :drug-used-for-treatment) ?disease_drug]]
+    ;?disease_drug (p :drug-used-for-treatment) ?drug]]
+    :limit 10])
+
+(entity "multiple sclerosis")
+(p "P1748")
+
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+SELECT ?disease ?diseaseLabel ?diseaseDescription ?drug ?drugLabel ?drugDescription ?link
+WHERE {
+       ?disease wdt:P1748 'C3243' . #multiple sclerosis
+                ?disease p:P2176 ?disease_drug .  #statement about drug used for treatment
+       ?disease_drug ps:P2176 ?drug . #which drug was it in that statement...
+       ?disease_drug prov:wasDerivedFrom ?reference . #chemblid pr:P592 , #NDF-RT P2115
+
+       optional {
+                 ?reference pr:P592 ?chemblid .
+                 wd:P592 wdt:P1630 ?url .
+                 BIND (replace(?url, "\\$1",?chemblid)  AS ?link)}
+
+       optional {
+                 ?reference pr:P2115 ?NDF_RT_ID .
+                 wd:P2115 wdt:P1630 ?url .
+                 BIND (replace(?url, "\\$1",?NDF_RT_ID )  AS ?link)}
+
+       SERVICE wikibase:label {
+                               bd:serviceParam wikibase:language "en" .}}
+
+

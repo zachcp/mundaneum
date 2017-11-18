@@ -126,6 +126,8 @@
                                               (str " wd:" e)
                                               (throw (Exception. (str "could not evaluate entity expression " (pr-str token)))))
                                     p       (str " p:"   (property (second token)))
+                                    pr      (str " pr:"  (property (second token)))
+                                    prov    (str " prov:wasDerivedFrom")
                                     ps      (str " ps:"  (property (second token)))
                                     pq      (str " pq:"  (property (second token)))
                                     wd      (str " wd:"  (second token))
