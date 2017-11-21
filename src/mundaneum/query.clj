@@ -79,6 +79,7 @@
       (recur (case token
                :where    (drop 2 q)
                :optional (drop 2 q)
+               :bind     (drop 2 q)
                :union    (drop 2 q)
                :minus    (drop 2 q)
                :filter   (drop 2 q)
@@ -99,6 +100,16 @@
                     (= :optional token) (str " OPTIONAL {\n"
                                           (stringify-query (second q))
                                           "}\n")
+                    ;(= :bind token)     (str " BIND (\n"
+                    ;                         (stringify-query (second q))
+                    ;                         ")\n")
+                    ;(= :bind token)     (let [[old new] (second q)]
+                    ;                      (str
+                    ;                        "\nBIND (\n"
+                    ;                        (stringify-query old)
+                    ;                        " AS "
+                    ;                        (stringify-query old)
+                    ;                        ")"))
                     (= :union token) (str " { "
                                           (->> (map stringify-query (second q))
                                                (interpose " } UNION { ")
@@ -130,6 +141,7 @@
                                     prov    (str " prov:wasDerivedFrom")
                                     ps      (str " ps:"  (property (second token)))
                                     pq      (str " pq:"  (property (second token)))
+                                    v       (str " v:"  (property (second token)))
                                     wd      (str " wd:"  (second token))
                                     wdt     (str " wdt:" (property (second token)))
                                     inverse (str "^" (second token))

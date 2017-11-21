@@ -1879,4 +1879,6 @@
    :volcanic-explosivity-index "P1903",
    :Smithsonian-volcano-identifier "P1886",
    :character-role "P453",
-   :KNApSAcK-ID "P2064"})
+   :KNApSAcK-ID "P2064"
+   :genetic-association "P2293"})
+
