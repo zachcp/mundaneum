@@ -22,6 +22,8 @@
 
 (describe (entity "U2" :part-of (entity "Berlin U-Bahn")))
 
+(entity "P176")
+
 ;; We also have functions that turn keywords into property values:
 (property :instance-of)
 ;;=> "P31"
@@ -50,7 +52,7 @@
 ;; eye color popularity, grouping and counting as part of the query
 (query
  '[:select ?eyeColorLabel (count ?person :as ?count)
-   :where [[?person (wdt :eye-color) ?eyeColor] ]
+   :where [[?person (wdt :eye-color) ?eyeColor]]
    :group-by ?eyeColorLabel
    :order-by (desc ?count)])
 
@@ -123,12 +125,12 @@
   (->> (query
         (template [:select ?isto ?analogyLabel
                    :where [[~(symbol (str "wd:" a1)) ?isto ~(symbol (str "wd:" a2))]
-                           [~(symbol (str "wd:" b1)) ?isto ?analogy]
+                           [~(symbol (str "wd:" b1)) ?isto ?analogy]]]))
                            ;; tightens analogies by requiring that a2/b2 be of the same kind,
                            ;; but loses some interesting loose analogies:
                            ;; [~(symbol (str "wd:" a2)) (wdt :instance-of) ?kind]
                            ;; [?analogy (wdt :instance-of) ?kind]
-                           ]]))
+
        (map #(let [arc (label (:isto %))]
                (str (label a1)
                     " is <" arc "> to "
@@ -283,3 +285,153 @@
 (binding [mundaneum.query/*default-language* "th"]
   (describe (entity "ระยอง")))
 ;;=> "หน้าแก้ความกำกวมวิกิมีเดีย"
+
+
+(entity "Peter Cooper")
+(describe "Q935291")
+
+
+(query
+  '[:select :distinct ?collegeLabel ?founderLabel
+    :where [[?college (wdt :founded-by) ?founder]
+            [?founder (wdt :occupation) / (wdt :subclass-of) *  (entity "engineer")]
+            [?college (wdt :instance-of) / (wdt :subclass-of) * (entity "higher education institution")]]
+    :order-by ?collegeLabel
+    :limit 1000])
+
+(property :founded-by)
+;[{:collegeLabel "Academx", :founderLabel "Abdelrahman Hussein"}
+; {:collegeLabel "Accademia Nazionale delle Scienze detta dei XL", :founderLabel "Antonio Maria Lorgna"}
+; {:collegeLabel "Ashesi University", :founderLabel "Patrick Awuah, Jr."}
+; {:collegeLabel "Brown University", :founderLabel "Moses Brown"}
+; {:collegeLabel "CODE University of Applied Sciences", :founderLabel "Thomas Bachem"}
+; {:collegeLabel "CentraleSupélec", :founderLabel "Hervé Biausser"}
+; {:collegeLabel "CentraleSupélec", :founderLabel "Éleuthère Mascart"}
+; {:collegeLabel "College of Europe", :founderLabel "Salvador de Madariaga"}
+; {:collegeLabel "Cornell University", :founderLabel "Ezra Cornell"}
+; {:collegeLabel "DeVry University", :founderLabel "Herman A. DeVry"}
+; {:collegeLabel "DigiPen Institute of Technology", :founderLabel "Claude Comair"}
+; {:collegeLabel "ENSTA Paris", :founderLabel "Henri-Louis Duhamel du Monceau"}
+; {:collegeLabel "EPF - Graduate Shool of Engineering", :founderLabel "Marie-Louise Paris"}
+; {:collegeLabel "Government Film and Television Institute", :founderLabel "M. Visvesvaraya"}
+; {:collegeLabel "Groupe INSA", :founderLabel "Jean Capelle"}
+; {:collegeLabel "Handong Global University", :founderLabel "Kim Young-gil"}
+; {:collegeLabel "Institut National des Sciences Appliquées de Lyon", :founderLabel "Jean Capelle"}
+; {:collegeLabel "Institut industriel du Nord", :founderLabel "Henri Masquelez"}
+; {:collegeLabel "Institut industriel du Nord", :founderLabel "Adolphe Matrot"}
+; {:collegeLabel "Institute for Creation Research", :founderLabel "Henry M. Morris"}
+; {:collegeLabel "Institute of Rural Management Anand", :founderLabel "Verghese Kurien"}
+; {:collegeLabel "Instituto Industrial e Comercial de Lisboa", :founderLabel "Fontes Pereira de Melo"}
+; {:collegeLabel "Karunya University", :founderLabel "D. G. S. Dhinakaran"}
+; {:collegeLabel "La Cambre", :founderLabel "Henry Van de Velde"}
+; {:collegeLabel "Libera Università Internazionale degli Studi Sociali Guido Carli", :founderLabel "Umberto Agnelli"}
+; {:collegeLabel "Liechtenstein Institute on Self-Determination", :founderLabel "Hans-Adam II, Prince of Liechtenstein"}
+; {:collegeLabel "Milwaukee School of Engineering", :founderLabel "Oscar Werwath"}
+; {:collegeLabel "Moscow State University", :founderLabel "Mikhail Vassilyevich Lomonosov"}
+; {:collegeLabel "National University of Engineering", :founderLabel "Edward Jan Habich"}
+; {:collegeLabel "Northrop University", :founderLabel "Jack Northrop"}
+; {:collegeLabel "Nuffield College", :founderLabel "William Morris, 1st Viscount Nuffield"}
+; {:collegeLabel "Open University of Catalonia", :founderLabel "Gabriel Ferraté Pascual"}
+; {:collegeLabel "Royal Swedish Academy of Sciences", :founderLabel "Mårten Triewald"}
+; {:collegeLabel "Shaheed Zulfiqar Ali Bhutto Institute of Science and Technology", :founderLabel "Javaid Laghari"}
+; {:collegeLabel "Singularity University", :founderLabel "Ray Kurzweil"}
+; {:collegeLabel "Solvay Brussels School of Economics and Management", :founderLabel "Ernest Solvay"}
+; {:collegeLabel "Supélec", :founderLabel "Éleuthère Mascart"}
+; {:collegeLabel "Technical University of Denmark", :founderLabel "Hans Christian Ørsted"}
+; {:collegeLabel "The Wharton School", :founderLabel "Joseph Wharton"}
+; {:collegeLabel "University of Iranians", :founderLabel "Mahmoud Ahmadinejad"}
+; {:collegeLabel "University of Pennsylvania", :founderLabel "Benjamin Franklin"}
+; {:collegeLabel "University of Strathclyde", :founderLabel "John Anderson"}
+; {:collegeLabel "University of Technology", :founderLabel "Jassim Al-Hayani"}
+; {:collegeLabel "University of Technology of Compiègne", :founderLabel "Guy Deniélou"}
+; {:collegeLabel "Webb Institute", :founderLabel "William H. Webb"}
+; {:collegeLabel "École Polytechnique", :founderLabel "Lazare Carnot"}
+; {:collegeLabel "École Polytechnique", :founderLabel "Jacques-Élie Lamblardie"}
+; {:collegeLabel "École Polytechnique", :founderLabel "Claude Antoine, comte Prieur-Duvernois"}
+; {:collegeLabel "École Polytechnique", :founderLabel "Gaspard Monge"}
+; {:collegeLabel "École des Ponts ParisTech", :founderLabel "Daniel-Charles Trudaine"}
+; {:collegeLabel "École nationale d'ingénieurs de Tunis", :founderLabel "Mokhtar Latiri"}
+; {:collegeLabel "École nationale supérieure Louis-Lumière", :founderLabel "Louis Lumière"}
+; {:collegeLabel "École nationale supérieure d'informatique et de mathématiques appliquées de Grenoble",
+;  :founderLabel "Jean Kuntzmann"}
+; {:collegeLabel "École spéciale de mécanique et d'électricité", :founderLabel "Joachim Sudria"}]
+
+
+(query
+  '[:select ?personLabel
+    :where [[?person (wdt :member-of) (entity "National Academy of Sciences")]
+            [?person (wdt :member-of) / (wdt :subclass-of) * wd:Q1493021]
+            [?person (wdt :member-of) (entity "National Academy of Medicine")]]
+    :limit 10])
+
+;[{:personLabel "Robert Samuel Langer, Jr."}
+; {:personLabel "James Collins"}
+; {:personLabel "Leroy Hood"}
+; {:personLabel "Frances Arnold"}
+; {:personLabel "Kristi Anseth"}
+; {:personLabel "Rakesh Jain"}
+; {:personLabel "Mark E. Davis"}
+; {:personLabel "Sheldon Weinbaum"}]
+
+
+
+(query
+  '[:select ?personLabel ?nobelLabel
+    :where [[?person (wdt :award-received) ?nobel]
+            [?nobel (wdt :instance-of) / (wdt :subclass-of) *  (entity "Nobel Prize")]
+            [?person (wdt :member-of) / (wdt :subclass-of) * wd:Q1493021]
+            [?person (wdt :member-of) (entity "National Academy of Sciences")]
+            [?person (wdt :member-of) (entity "National Academy of Medicine")]]
+    :limit 10])
+
+; [{:personLabel "Frances Arnold", :nobelLabel "Nobel Prize in Chemistry"}]
+
+
+(query
+  '[:select ?personLabel ?nobelLabel ?laskerLabel
+    :where [[?person (wdt :award-received) ?nobel]
+            [?person (wdt :award-received) ?lasker]
+            [?nobel (wdt :instance-of) / (wdt :subclass-of) *  (entity "Nobel Prize")]
+            [?lasker (wdt :part-of) *  (entity "Lasker Award")]]
+    :limit 20])
+
+
+(query
+  '[:select ?personLabel ?awardLabel ?tLabel
+    :where [
+            [?person a* (entity "Axel Ullrich")]
+            [?person (p :award-received) ?awardStat]
+            [?awardStat  (ps :award-received) ?award]
+            [?awardStat  (pq :point-in-time) ?t]
+            [?award (wdt :part-of) (entity "Lasker Award")]]])
+;
+;[{:personLabel "Axel Ullrich",
+;  :awardLabel "Lasker-DeBakey Clinical Medical Research Award",
+;  :tLabel "2019-01-01T00:00:00Z"}]
+
+
+(query
+  '[:select ?personLabel ?awardLabel
+    :where [
+            [?person (wdt :award-received) ?award
+             _ (wdt :point-in-time) ?award]
+            [(entity "Lasker Award") (wdt :has-part) *  ?award]]])
+
+
+(property :point-in-time)
+()
+(query
+  '[:select ?awardLabel
+    :where [[(entity "Lasker Award") (wdt :has-part) *  ?award]]])
+
+
+(query
+  '[:select ?awardLabel
+    :where [[?person a (entity "Axel Ullrich")]
+            [?person (wdt :award-received) ?award]]])
+
+
+(query
+  '[:select ?personLabel ?awardLabel
+    :where [[?person a* (entity "Axel Ullrich")]
+            [?person (wdt :award-received) ?award]]])
